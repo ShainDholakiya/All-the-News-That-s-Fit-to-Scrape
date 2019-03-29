@@ -1,82 +1,147 @@
-// Dependencies
 var express = require("express");
-var mongojs = require("mongojs");
-// Require axios and cheerio. This makes the scraping possible
-var axios = require("axios");
+var mongoose = require("mongoose");
+var logger = require("morgan");
 var cheerio = require("cheerio");
+var axios = require("axios");
+var path = require("path");
 
-// Initialize Express
+var db = require("./models");
+var PORT = process.env.PORT || 3000
+
 var app = express();
 
-// Database configuration
-var databaseUrl = "scraper";
-var collections = ["scrapedData"];
+app.use(logger("dev"));
+app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
+app.use(express.static("public"));
 
-// Hook mongojs configuration to the db variable
-var db = mongojs(databaseUrl, collections);
-db.on("error", function(error) {
-  console.log("Database Error:", error);
+
+var MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost/mongoHeadlines"
+mongoose.connect(MONGODB_URI, { useNewUrlParser: true });
+
+app.get("/", function (req, res) {
+    res.sendFile(path.join(__dirname, './public/index.html'));
 });
 
-// Main route (simple Hello World Message)
-app.get("/", function(req, res) {
-  res.send("Hello world");
+app.get("/saved", function(req, res) {
+	res.sendFile(path.join(__dirname, './public/saved.html'));
 });
 
-// Retrieve data from the db
-app.get("/all", function(req, res) {
-  // Find all results from the scrapedData collection in the db
-  db.scrapedData.find({}, function(error, found) {
-    // Throw any errors to the console
-    if (error) {
-      console.log(error);
-    }
-    // If there are no errors, send the data to the browser as json
-    else {
-      res.json(found);
-    }
-  });
+app.get("/scrape", function (req, res) {
+    axios.get("https://www.npr.org").then(function (response) {
+        var $ = cheerio.load(response.data);
+        $("article").each(function (i, element) {
+            var result = {};
+
+            result.headline = $(this)
+                .find("h2")
+                .text();
+            result.URL = $(this)
+                .find("a")
+                .attr("href");
+            result.summary = $(this)
+                .find("p")
+                .text()
+
+            db.Article.create(result)
+                .then(function (dbArticle) {
+                    console.log(dbArticle);
+                })
+                .catch(function (err) {
+                    console.log(err)
+                })
+        })
+        res.redirect("/");
+    })
 });
 
-// Scrape data from one site and place it into the mongodb db
-app.get("/scrape", function(req, res) {
-  // Make a request via axios for the news section of `ycombinator`
-  axios.get("https://www.nytimes.com/").then(function(response) {
-    // Load the html body from axios into cheerio
-    var $ = cheerio.load(response.data);
-    // For each element with a "title" class
-    $(".title").each(function(i, element) {
-      // Save the text and href of each link enclosed in the current element
-      var title = $(element).children("a").text();
-      var link = $(element).children("a").attr("href");
-
-      // If this found element had both a title and a link
-      if (title && link) {
-        // Insert the data in the scrapedData db
-        db.scrapedData.insert({
-          title: title,
-          link: link
-        },
-        function(err, inserted) {
-          if (err) {
-            // Log the error if one is encountered during the query
-            console.log(err);
-          }
-          else {
-            // Otherwise, log the inserted data
-            console.log(inserted);
-          }
-        });
-      }
-    });
-  });
-
-  // Send a "Scrape Complete" message to the browser
-  res.send("Scrape Complete");
+app.get("/articles", function (req, res) {
+    db.Article
+        .find(req.query)
+        .then(function (dbArticle) {
+            res.json(dbArticle)
+        })
+        .catch(function (err) {
+            res.json(err)
+        })
 });
 
+app.get("/clear", function (req, res) {
+    db.Article  
+        .find(req.query)
+        .then(function (dbArticle) {
+            db.Article.collection.deleteMany()
+            initPage()
+        })
+        .catch(function (err) {
+            res.json(err)
+        })
+        res.redirect("/");
+});
 
-// Listen on port 3000
-app.listen(3000, function() {
-  console.log("App running on port 3000!");
+app.put("/articles/:id", function (req, res) {
+    db.Article.findOneAndUpdate({ _id: req.params.id }, { $set: req.body }, { new: true }).then(function (savedArticle) {
+        res.json(savedArticle)
+    })
+});
+
+app.get("/articles/:id", function (req, res) {
+    db.Article
+        .findOne({ _id: req.params.id })
+        .populate("note")
+        .then(function (dbArticle) {
+            res.json(dbArticle)
+        })
+        .catch(function (err) {
+            res.json(err)
+        })
+});
+
+app.post("/articles/:id", function (req, res) {
+    db.Note.create(req.body)
+        .then(function (dbNote) {
+            return db.Article.findOneAndUpdate({ _id: req.params.id}, { note: dbNote._id }, { new: true })
+        })
+        .then(function (dbArticle) {
+            res.json(dbArticle)
+        })
+        .catch(function (err) {
+            res.json(err)
+        })
+});
+
+app.get("/api/saved", function(req, res) {
+    db.Article
+        .find({ saved: true })
+        .then(function (dbArticle) {
+            res.json(dbArticle)
+        })
+        .catch(function (err) {
+            res.json(err)
+        })
+});
+
+app.post("/api/notes", function (req, res) {
+    db.Note 
+        .create(req.body)
+        .then(function (dbNote) {
+            return db.Article.findOneAndUpdate({ _id: req.params.id }, { note: dbNote._id}, { new: true })
+        })
+        .then(function (dbArticle) {
+            res.json(dbArticle)
+        })
+        .catch(function (err) {
+            res.json(err);
+        })
+});
+
+app.get("/api/notes", function (req, res) {
+    db.Note.find({ _headlineId: req.body._headlineId }).then(function (dbNote) {
+        console.log("note added")
+        res.json(dbNote)
+    })
+});
+
+app.listen(PORT, function () {
+    console.log("app running on port " + PORT)
 });
