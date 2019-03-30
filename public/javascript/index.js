@@ -25,11 +25,11 @@ $(document).ready(function () {
 
     function createCard(article) {
         console.log(article);
-        var card = $("<div style='margin-left: 70px; margin-right: 70px' class='card'>");
-        var cardHeader = $("<div class='card-header bg-dark'>").append(
+        var card = $("<div style='box-shadow: 3px 3px 20px lightslategrey; margin-left: 70px; margin-right: 70px; margin-top: 25px' class='card'>");
+        var cardHeader = $("<div style='height: 50px; padding-top: 8px' class='card-header bg-dark'>").append(
             $('<h3>').append(
                 $("<a class='article-link' target='_blank' rel='noopener noreferrer'>")
-                    .attr('href', article.URL)
+                    .attr('href', 'https://www.nytimes.com' + article.URL)
                     .text(article.headline),
             )
         );

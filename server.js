@@ -28,7 +28,7 @@ app.get("/saved", function(req, res) {
 });
 
 app.get("/scrape", function (req, res) {
-    axios.get("https://www.npr.org").then(function (response) {
+    axios.get("https://www.nytimes.com/").then(function (response) {
         var $ = cheerio.load(response.data);
         $("article").each(function (i, element) {
             var result = {};
