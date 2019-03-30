@@ -23,8 +23,8 @@ app.get("/", function (req, res) {
     res.sendFile(path.join(__dirname, './public/index.html'));
 });
 
-app.get("/saved", function(req, res) {
-	res.sendFile(path.join(__dirname, './public/saved.html'));
+app.get("/saved", function (req, res) {
+    res.sendFile(path.join(__dirname, './public/saved.html'));
 });
 
 app.get("/scrape", function (req, res) {
@@ -67,7 +67,7 @@ app.get("/articles", function (req, res) {
 });
 
 app.get("/clear", function (req, res) {
-    db.Article  
+    db.Article
         .find(req.query)
         .then(function (dbArticle) {
             db.Article.collection.deleteMany()
@@ -76,7 +76,7 @@ app.get("/clear", function (req, res) {
         .catch(function (err) {
             res.json(err)
         })
-        res.redirect("/");
+    res.redirect("/");
 });
 
 app.put("/articles/:id", function (req, res) {
@@ -100,7 +100,7 @@ app.get("/articles/:id", function (req, res) {
 app.post("/articles/:id", function (req, res) {
     db.Note.create(req.body)
         .then(function (dbNote) {
-            return db.Article.findOneAndUpdate({ _id: req.params.id}, { note: dbNote._id }, { new: true })
+            return db.Article.findOneAndUpdate({ _id: req.params.id }, { note: dbNote._id }, { new: true })
         })
         .then(function (dbArticle) {
             res.json(dbArticle)
@@ -110,7 +110,7 @@ app.post("/articles/:id", function (req, res) {
         })
 });
 
-app.get("/api/saved", function(req, res) {
+app.get("/api/saved", function (req, res) {
     db.Article
         .find({ saved: true })
         .then(function (dbArticle) {
@@ -122,10 +122,10 @@ app.get("/api/saved", function(req, res) {
 });
 
 app.post("/api/notes", function (req, res) {
-    db.Note 
+    db.Note
         .create(req.body)
         .then(function (dbNote) {
-            return db.Article.findOneAndUpdate({ _id: req.params.id }, { note: dbNote._id}, { new: true })
+            return db.Article.findOneAndUpdate({ _id: req.params.id }, { note: dbNote._id }, { new: true })
         })
         .then(function (dbArticle) {
             res.json(dbArticle)
